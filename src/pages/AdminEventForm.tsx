@@ -3,11 +3,9 @@ import axiosClient from "../api/axiosClient";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
-
 interface EventInput {
   name: string;
   description: string;
-  image_url: string;
   location: string;
   date: string;
   available_tickets: number;
@@ -25,25 +23,22 @@ const AdminEventForm: React.FC = () => {
   const [form, setForm] = useState<EventInput>({
     name: "",
     description: "",
-    image_url: "",
     location: "",
     date: "",
     available_tickets: 0,
     ticket_price: 0,
   });
-
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Kiểm tra quyền admin
   useEffect(() => {
     const checkAdmin = () => {
       const token = localStorage.getItem("accessToken");
-
       if (!token) return navigate("/");
 
       try {
-        const decoded = jwtDecode<MyJwtPayload>(token);
+        const decoded: MyJwtPayload = jwtDecode(token);
         if (decoded.role !== "admin") {
           alert("Chỉ admin mới có quyền");
           navigate("/");
@@ -57,38 +52,50 @@ const AdminEventForm: React.FC = () => {
   }, [navigate]);
 
   const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-) => {
-  const { name, value } = e.target;
-  setForm({
-    ...form,
-    [name]:
-      name === "available_tickets" || name === "ticket_price"
-        ? parseInt(value) || 0
-        : value,
-  });
-};
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm({
+      ...form,
+      [name]:
+        name === "available_tickets" || name === "ticket_price"
+          ? parseInt(value) || 0
+          : value,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  try {
-    const formData = {
-      ...form,
-      date: new Date(form.date).toISOString(), // ✅ chuyển về ISO format
-    };
+    if (!imageFile) {
+      setError("Vui lòng chọn ảnh cho sự kiện");
+      return;
+    }
 
-    await axiosClient.post("/events", formData);
-    alert("Tạo sự kiện thành công");
-    navigate("/");
-  } catch (err: any) {
-    setError(err?.response?.data?.error || "Tạo sự kiện thất bại");
-  }
-};
+    try {
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("location", form.location);
+      formData.append("date", new Date(form.date).toISOString());
+      formData.append("total_tickets", String(form.available_tickets));
+      formData.append("available_tickets", String(form.available_tickets));
+      formData.append("ticket_price", String(form.ticket_price));
+      formData.append("image", imageFile);
 
+      await axiosClient.post("/events", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-   return (
+      alert("Tạo sự kiện thành công");
+      navigate("/");
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Tạo sự kiện thất bại");
+    }
+  };
+
+  return (
     <div className="container d-flex justify-content-center align-items-start" style={{ minHeight: "100vh", paddingTop: "40px" }}>
       <div className="card shadow p-4" style={{ maxWidth: 600, width: "100%" }}>
         <h3 className="text-center mb-4">Thêm Sự Kiện Mới</h3>
@@ -103,9 +110,15 @@ const AdminEventForm: React.FC = () => {
           />
           <input
             className="form-control mb-3"
-            name="image_url"
-            placeholder="URL ảnh"
-            onChange={handleChange}
+            name="image"
+            type="file"
+            accept="image/*"
+            required
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                setImageFile(e.target.files[0]);
+              }
+            }}
           />
           <textarea
             className="form-control mb-3"
