@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: "https://event-ticketing-backend-pi71.onrender.com/api",
+  baseURL: "https://api.minhquan.site/api",
   headers: {
     'Content-Type': 'application/json',
   },
